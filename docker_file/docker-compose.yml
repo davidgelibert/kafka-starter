@@ -1,0 +1,78 @@
+version: '3'
+services:
+
+# zookeeper
+  zookeeper:
+    image: 'confluentinc/cp-zookeeper:7.0.1'
+    container_name: demo-kafka-zookeeper
+    ports:
+      - '2181:2181'
+    expose:
+      - 2181
+    restart: always
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+
+# kafka-broker
+  kafka-broker:
+    image: 'confluentinc/cp-kafka:7.0.1'
+    container_name: demo-kafka
+    ports:
+      - '9092:9092'
+    expose:
+      - 9092
+    restart: always
+    environment:
+      - 'KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-broker:9092'
+      - 'KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181'
+      - KAFKA_ADVERTISED_HOST_NAME=kafka-broker
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_LOG4J_ROOT_LOGLEVEL=ERROR
+      - >-
+        KAFKA_LOG4J_LOGGERS=org.apache.zookeeper=ERROR,org.apache.kafka=ERROR,kafka=ERROR,kafka.cluster=ERROR,kafka.controller=ERROR,kafka.coordinator=ERROR,kafka.log=ERROR,kafka.server=ERROR,kafka.zookeeper=ERROR,state.change.logger=ERROR
+    depends_on:
+      - zookeeper
+
+# control-center
+  control-center:
+    image: 'confluentinc/cp-enterprise-control-center:7.0.1'
+    container_name: demo-kafka-control-center
+    ports:
+      - '9021:9021'
+    restart: always
+    environment:
+      - 'CONTROL_CENTER_BOOTSTRAP_SERVERS=PLAINTEXT://kafka-broker:9092'
+      - 'CONTROL_CENTER_ZOOKEEPER_CONNECT=zookeeper:2181'
+      - CONTROL_CENTER_REPLICATION_FACTOR=1
+      - CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS=1
+      - CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS=1
+      - CONFLUENT_METRICS_TOPIC_REPLICATION=1
+      - CONTROL_CENTER_CUB_KAFKA_TIMEOUT=300
+      - PORT=9021
+    depends_on:
+      - zookeeper
+      - kafka-broker
+
+# kafka-ui
+  kafka-ui:
+    image: 'provectuslabs/kafka-ui:0.3.3'
+    container_name: demo-kafka-ui
+    ports:
+      - '8090:8090'
+    restart: always
+    environment:
+      - SERVER_PORT=8090
+      - KAFKA_CLUSTERS_0_NAME=cluster-local
+      - 'KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=PLAINTEXT://kafka-broker:9092'
+      - 'KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181'
+      - KAFKA_CLUSTERS_0_SCHEMANAMETEMPLATE=%s-value
+      - KAFKA_CLUSTERS_0_READONLY=false
+      - KAFKA_CLUSTERS_0_DISABLELOGDIRSCOLLECTION=false
+      - TOPIC_RECREATE_DELAY_SECONDS=1
+      - TOPIC_RECREATE_MAXRETRIES=15
+    depends_on:
+      - kafka-broker
+      - zookeeper
